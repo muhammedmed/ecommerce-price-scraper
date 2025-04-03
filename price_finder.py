@@ -2,7 +2,6 @@ import argparse
 import asyncio
 import logging
 import os
-import random
 import re
 from dataclasses import dataclass
 from datetime import datetime
@@ -30,10 +29,6 @@ class Product:
     url: str
     site: str
 
-class PriceScraperException(Exception):
-    """Custom exception for scraping related errors."""
-    pass
-
 class EbayPriceScraper:
     """Scrapes product prices from eBay."""
     
@@ -48,12 +43,8 @@ class EbayPriceScraper:
         'au': 'ebay.com.au'
     }
     
-    USER_AGENTS = [
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36",
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15",
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:90.0) Gecko/20100101 Firefox/90.0"
-    ]
+    # Single reliable user agent is sufficient for most cases
+    USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
     
     def __init__(self, max_products: int = 5, regions: Optional[List[str]] = None):
         """Initialize the scraper with configuration."""
@@ -61,14 +52,13 @@ class EbayPriceScraper:
         self.regions = regions or ['us']
     
     def _get_headers(self) -> dict:
-        """Generate random headers for requests."""
+        """Generate headers for requests."""
         return {
-            'User-Agent': random.choice(self.USER_AGENTS),
+            'User-Agent': self.USER_AGENT,
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.5',
             'Connection': 'keep-alive',
             'Upgrade-Insecure-Requests': '1',
-            'Cache-Control': 'max-age=0'
         }
     
     async def _extract_product_data(self, card, region: str) -> Optional[Product]:
@@ -98,7 +88,7 @@ class EbayPriceScraper:
             link_element = card.select_one('a.s-item__link')
             if not link_element or not link_element.get('href'):
                 return None
-            url = link_element['href'].split('?')[0]  # Clean URL parameters
+            url = link_element['href']  # Keep original URL intact
             
             # Return product if all information is valid
             if name and price and url and len(name) > 5:  # Skip very short names
@@ -110,8 +100,8 @@ class EbayPriceScraper:
                 )
             return None
             
-        except Exception as e:
-            logger.debug(f"Error extracting product data: {e}")
+        except Exception:
+            # Less verbose error handling
             return None
     
     async def _search_region(self, session: aiohttp.ClientSession, query: str, region: str) -> List[Product]:
@@ -120,21 +110,16 @@ class EbayPriceScraper:
             ebay_domain = self.EBAY_SITES.get(region, 'ebay.com')
             url = f"https://www.{ebay_domain}/sch/i.html?_nkw={quote_plus(query)}&_ipg=100"  # Show 100 items per page
             
-            # Disable SSL verification
-            ssl_context = False
-            
-            async with session.get(url, headers=self._get_headers(), ssl=ssl_context) as response:
+            async with session.get(url, headers=self._get_headers()) as response:
                 response.raise_for_status()
                 html = await response.text()
                 
                 soup = BeautifulSoup(html, 'html.parser')
-                product_cards = soup.select('div.s-item__wrapper')  # More specific selector
+                product_cards = soup.select('div.s-item__wrapper')
                 
                 if not product_cards:
                     logger.warning(f"No product cards found on eBay {region}.")
                     return []
-                
-                logger.info(f"Found {len(product_cards)} potential products on eBay {region}.")
                 
                 # Process cards concurrently
                 tasks = [
@@ -143,12 +128,10 @@ class EbayPriceScraper:
                 ]
                 products = await asyncio.gather(*tasks)
                 
-                # Filter out None values and sort by price
+                # Filter out None values
                 valid_products = [p for p in products if p is not None]
                 
-                # Log how many valid products were found
-                logger.info(f"Successfully extracted {len(valid_products)} valid products from eBay {region}")
-                
+                logger.info(f"Extracted {len(valid_products)} products from eBay {region}")
                 return valid_products
                 
         except Exception as e:
@@ -174,10 +157,6 @@ class EbayPriceScraper:
 class ExcelExporter:
     """Handles exporting data to Excel files."""
     
-    def __init__(self, filename_prefix: str = "price_comparison"):
-        """Initialize the exporter with configuration."""
-        self.filename_prefix = filename_prefix
-    
     def export(self, products: List[Product], query: str, output_file: Optional[str] = None) -> str:
         """Export products to an Excel file."""
         if not products:
@@ -193,11 +172,12 @@ class ExcelExporter:
         
         df = pd.DataFrame(data)
         
-        # Generate output filename
+        # Generate output filename if none provided
         if not output_file:
-            # Create unique filename with timestamp
+            # Simplified filename - uses query and timestamp
+            sanitized_query = re.sub(r'[^\w\s]', '', query).replace(' ', '_')
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            output_file = f"{query.replace(' ', '_')}_{timestamp}_{self.filename_prefix}.xlsx"
+            output_file = f"{sanitized_query}_{timestamp}.xlsx"
         
         try:
             # Save to Excel with multiple sheets
@@ -232,9 +212,6 @@ class ExcelExporter:
             output_file = f"{base}_new{ext}"
             logger.warning(f"Original file was locked, saving as: {output_file}")
             return self.export(products, query, output_file)
-        except Exception as e:
-            logger.error(f"Failed to save Excel file: {e}")
-            raise
         
         logger.info(f"Successfully saved {len(products)} products to {output_file}")
         return output_file
@@ -262,25 +239,26 @@ async def main():
         # Search for products
         products = await scraper.search(args.query)
         
-        if products:
-            # Export to Excel
-            output_file = exporter.export(products, args.query, args.output)
-            
-            # Open Excel file on Windows
-            if os.name == 'nt':
-                try:
-                    os.startfile(output_file)
-                except Exception as e:
-                    logger.error(f"Failed to open Excel file: {e}")
-        else:
+        if not products:
             logger.warning("No products found. Try a different search term.")
             return 1
+        
+        # Export to Excel
+        output_file = exporter.export(products, args.query, args.output)
+        
+        # Report success to user
+        print(f"Success! Found {len(products)} products. Results saved to: {output_file}")
+            
+        # Open Excel file if on Windows and file exists
+        if os.name == 'nt' and os.path.exists(output_file):
+            try:
+                os.startfile(output_file)
+            except Exception as e:
+                logger.debug(f"Could not open Excel file: {e}")
+                # Not critical if file opening fails
     
-    except PriceScraperException as e:
-        logger.error(f"Scraping error: {e}")
-        return 1
     except Exception as e:
-        logger.error(f"An unexpected error occurred: {e}")
+        logger.error(f"Error: {e}")
         return 1
     
     return 0
