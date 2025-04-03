@@ -1,14 +1,14 @@
-# E-commerce Price Comparison Tool
+# E-commerce Price Scraper
 
-This Python application fetches publicly available product prices from multiple online marketplaces and exports the results to an Excel file for easy comparison.
+This Python application fetches publicly available product prices from multiple online marketplaces and exports the results to an Excel file for easy reference.
 
 ## Features
 
-- Collects product names, prices, and links from multiple regional online marketplaces (e.g., US, UK, Germany, France, etc.)
-- Handles multiple regions concurrently using asynchronous requests for fast data collection
-- Creates professional Excel reports with clickable hyperlinks
-- Provides a user-friendly command-line interface with customizable options
-- Implements proper error handling and logging
+- Retrieves product names, prices, and links from various regional e-commerce websites (e.g., US, UK, Germany, France, etc.)
+- Uses asynchronous requests for faster data collection
+- Generates Excel reports with clickable hyperlinks
+- Simple command-line interface with customizable options
+- Includes error handling and logging
 
 ## Dependencies
 
@@ -48,7 +48,7 @@ py price_scraper.py "PS5"
 
 This will:
 1. Search for "PS5" in the default region
-2. Collect up to 5 products (default limit)
+2. Collect up to 5 product prices (default limit)
 3. Save the results to an Excel file with a timestamp
 4. Automatically open the Excel file (on Windows)
 
@@ -67,19 +67,19 @@ Available parameters:
 
 The generated Excel file includes:
 - Product names
-- Prices 
-- Source site 
+- Prices
+- Source site
 - Clickable links to the original product pages
 
 ## Notes
 
-- The application relies on publicly available data and website structures. If a marketplace changes its site layout, the scraper may need to be updated.
-- Using this tool with very high request volumes may result in temporary access limitations imposed by the respective websites.
-- Users are responsible for complying with all applicable website terms of service and legal regulations when using this software.
+- This script retrieves publicly available data from e-commerce websites. If a website changes its structure, the scraper may require updates.
+- Excessive requests to a website may result in temporary access limitations.
+- Users are responsible for complying with all applicable website terms of service and legal regulations when using this tool.
 
 ## Legal Disclaimer
 
-This tool is for educational and research purposes only. It is not affiliated with, endorsed by, or approved by any e-commerce platform. Users are responsible for ensuring compliance with applicable terms of service and legal requirements.
+This tool is for educational and research purposes only. It is not affiliated with, endorsed by, or approved by any e-commerce platform. Users must ensure compliance with relevant terms of service and legal requirements.
 
 ## License
 
