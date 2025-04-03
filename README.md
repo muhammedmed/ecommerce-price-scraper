@@ -22,8 +22,8 @@ This Python application fetches publicly available product prices from multiple 
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/yourusername/marketplace-price-comparison.git
-cd marketplace-price-comparison
+git clone https://github.com/muhammedmed/ecommerce-price-scraper.git
+cd ecommerce-price-scraper
 ```
 
 2. Install the required packages:
@@ -67,8 +67,8 @@ Available parameters:
 
 The generated Excel file includes:
 - Product names
-- Prices (with currency)
-- Source site (with region)
+- Prices 
+- Source site 
 - Clickable links to the original product pages
 
 ## Notes
